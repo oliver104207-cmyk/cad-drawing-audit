@@ -117,3 +117,51 @@ wrong with it, including if the answer is "your drawings are fine, my tool is wr
 ## License
 
 MIT for the code. The dataset is CC0.
+
+
+---
+
+## Reproduce these numbers yourself
+
+The 21-drawing result is not a claim you have to take on faith. Run this:
+
+```python
+import ezdxf, glob, hashlib
+
+seen, uniq = set(), []
+for f in sorted(glob.glob("*.dxf")):
+    h = hashlib.md5(open(f, "rb").read()).hexdigest()
+    if h not in seen:
+        seen.add(h)
+        uniq.append(f)
+ok = fail = total = 0
+for f in uniq:
+    try:
+        doc = ezdxf.readfile(f)
+        total += len(list(doc.modelspace()))
+        ok += 1
+    except Exception:
+        fail += 1
+
+print(len(uniq), "unique /", ok, "readable /", fail, "failed /", total, "entities")
+```
+
+Expected on the same 27 source files:
+
+```
+21 unique / 18 readable / 3 failed / 151048 entities
+```
+Two things matter here:
+
+- **The dedup step**: 27 files collapse to 21 unique by MD5. Six of them are the
+  same drawing saved twice. Skip dedup and every count downstream is inflated.
+- **"Failed" is not "empty"**: 3 files raise on read. They are counted separately
+  from drawings that open fine but contain no text. Merging those two categories
+  is how you end up telling a customer their good drawing is blank.
+`data/drawing_audit_21.csv` has one row per unique file -- that is the number
+you should trust without checking.
+
+The full `audit.py` (which also classifies drawing type, finds anonymous blocks,
+and detects stacked name anchors) is **not in this repo yet**. I could not push
+it through the web editor. The snippet above reproduces the headline counts;
+it does not reproduce the per-file issue classification.
